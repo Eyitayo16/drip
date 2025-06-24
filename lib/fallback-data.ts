@@ -161,3 +161,6 @@ export const fallbackSettings = {
   delivery_info: "Free delivery within Lagos. Nationwide shipping available.",
   return_policy: "30-day return policy on all items.",
 }
+
+// Export fallbackSettings as fallbackSiteSettings for compatibility
+export const fallbackSiteSettings = fallbackSettings
