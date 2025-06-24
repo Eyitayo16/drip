@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,33 +23,42 @@ import {
   MessageSquare,
   User,
   ImageIcon,
+  Crown,
 } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { CloudinaryImageManager } from "@/components/admin/cloudinary-image-manager"
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
+import { getProducts, createProduct, updateProduct, deleteProduct, toggleProductStatus } from "@/lib/api/products"
+import { getTestimonials, createTestimonial } from "@/lib/api/testimonials"
+import { getSiteSettings, setSiteSettings } from "@/lib/api/settings"
+import type { Database } from "@/types/supabase"
+
+type Product = Database["public"]["Tables"]["products"]["Row"]
+type Testimonial = Database["public"]["Tables"]["testimonials"]["Row"]
 
 // Types for our data structures
-interface Product {
-  id: number
-  name: string
-  category: string
-  price: string
-  image: string
-  description: string
-  badge: string
-  isActive: boolean
-}
+// interface Product {
+//   id: number
+//   name: string
+//   category: string
+//   price: string
+//   image: string
+//   description: string
+//   badge: string
+//   isActive: boolean
+// }
 
-interface Testimonial {
-  id: number
-  name: string
-  role: string
-  content: string
-  rating: number
-  isActive: boolean
-}
+// interface Testimonial {
+//   id: number
+//   name: string
+//   role: string
+//   content: string
+//   rating: number
+//   isActive: boolean
+// }
 
 interface InstagramPost {
   id: number
@@ -72,44 +81,79 @@ interface SiteSettings {
 }
 
 export default function AdminDashboard() {
+  const { profile } = useSupabaseAuth()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("products")
   const [isLoading, setIsLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
 
   // State for all data
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 1,
-      name: "Royal Street Hoodie",
-      category: "Unisex Fashion",
-      price: "₦45,000",
-      image: "/placeholder.svg?height=400&width=300",
-      description: "Premium streetwear meets luxury comfort",
-      badge: "Trending",
-      isActive: true,
-    },
-    {
-      id: 2,
-      name: "Gold Chain Luxury Set",
-      category: "Jewelry",
-      price: "₦120,000",
-      image: "/placeholder.svg?height=400&width=300",
-      description: "18k gold-plated statement piece",
-      badge: "Limited",
-      isActive: true,
-    },
-  ])
+  const [products, setProducts] = useState<Product[]>([])
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [siteSettings, setSiteSettingsState] = useState<Record<string, string>>({})
 
-  const [testimonials, setTestimonials] = useState<Testimonial[]>([
-    {
-      id: 1,
-      name: "Adunni Ade",
-      role: "Nollywood Actress",
-      content: "Minis Umar transformed my entire wardrobe. The attention to detail and luxury pieces are unmatched!",
-      rating: 5,
-      isActive: true,
-    },
-  ])
+  // Load data on component mount
+  useEffect(() => {
+    loadAllData()
+  }, [])
+
+  const loadAllData = async () => {
+    setDataLoading(true)
+    try {
+      const [productsData, testimonialsData, settingsData] = await Promise.all([
+        getProducts(),
+        getTestimonials(),
+        getSiteSettings(),
+      ])
+
+      setProducts(productsData)
+      setTestimonials(testimonialsData)
+      setSiteSettingsState(settingsData)
+    } catch (error) {
+      console.error("Error loading data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load data. Please refresh the page.",
+        variant: "destructive",
+      })
+    } finally {
+      setDataLoading(false)
+    }
+  }
+
+  // const [products, setProducts] = useState<Product[]>([
+  //   {
+  //     id: 1,
+  //     name: "Royal Street Hoodie",
+  //     category: "Unisex Fashion",
+  //     price: "₦45,000",
+  //     image: "/placeholder.svg?height=400&width=300",
+  //     description: "Premium streetwear meets luxury comfort",
+  //     badge: "Trending",
+  //     isActive: true,
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Gold Chain Luxury Set",
+  //     category: "Jewelry",
+  //     price: "₦120,000",
+  //     image: "/placeholder.svg?height=400&width=300",
+  //     description: "18k gold-plated statement piece",
+  //     badge: "Limited",
+  //     isActive: true,
+  //   },
+  // ])
+
+  // const [testimonials, setTestimonials] = useState<Testimonial[]>([
+  //   {
+  //     id: 1,
+  //     name: "Adunni Ade",
+  //     role: "Nollywood Actress",
+  //     content: "Minis Umar transformed my entire wardrobe. The attention to detail and luxury pieces are unmatched!",
+  //     rating: 5,
+  //     isActive: true,
+  //   },
+  // ])
 
   const [instagramPosts, setInstagramPosts] = useState<InstagramPost[]>([
     {
@@ -121,17 +165,17 @@ export default function AdminDashboard() {
     },
   ])
 
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-    brandName: "MINIS LUXURY",
-    tagline: "Where Nigerian Street Fashion Meets Global Luxury",
-    whatsappNumber: "2349057244762",
-    instagramHandle: "@Minis_Luxury",
-    heroTitle: "MINIS LUXURY",
-    heroSubtitle: "Where Nigerian Street Fashion Meets Global Luxury",
-    aboutText: "From the vibrant streets of Nigeria to the global luxury fashion scene...",
-    founderName: "Muhammed Umar Faruq",
-    founderTitle: "Founder & Creative Director",
-  })
+  // const [siteSettings, setSiteSettings] = useState<SiteSettings>({
+  //   brandName: "MINIS LUXURY",
+  //   tagline: "Where Nigerian Street Fashion Meets Global Luxury",
+  //   whatsappNumber: "2349057244762",
+  //   instagramHandle: "@Minis_Luxury",
+  //   heroTitle: "MINIS LUXURY",
+  //   heroSubtitle: "Where Nigerian Street Fashion Meets Global Luxury",
+  //   aboutText: "From the vibrant streets of Nigeria to the global luxury fashion scene...",
+  //   founderName: "Muhammed Umar Faruq",
+  //   founderTitle: "Founder & Creative Director",
+  // })
 
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
@@ -149,20 +193,7 @@ export default function AdminDashboard() {
   const handleSaveData = async () => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // In a real app, this would save to your database/CMS
-      localStorage.setItem(
-        "minisLuxuryData",
-        JSON.stringify({
-          products,
-          testimonials,
-          instagramPosts,
-          siteSettings,
-        }),
-      )
-
+      await setSiteSettings(siteSettings)
       toast({
         title: "Success!",
         description: "All changes have been saved successfully.",
@@ -178,24 +209,31 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleAddProduct = () => {
-    const newProduct: Product = {
-      id: Date.now(),
-      name: productForm.name || "",
-      category: productForm.category || "",
-      price: productForm.price || "",
-      image: productForm.image || "/placeholder.svg?height=400&width=300",
-      description: productForm.description || "",
-      badge: productForm.badge || "New",
-      isActive: true,
+  const handleAddProduct = async () => {
+    try {
+      const newProduct = await createProduct({
+        name: productForm.name || "",
+        category: productForm.category || "",
+        price: productForm.price || "",
+        image_url: productForm.image || null,
+        description: productForm.description || "",
+        badge: productForm.badge || "New",
+      })
+
+      setProducts([newProduct, ...products])
+      setProductForm({})
+      setIsProductModalOpen(false)
+      toast({
+        title: "Product Added",
+        description: "New product has been added successfully.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add product. Please try again.",
+        variant: "destructive",
+      })
     }
-    setProducts([...products, newProduct])
-    setProductForm({})
-    setIsProductModalOpen(false)
-    toast({
-      title: "Product Added",
-      description: "New product has been added successfully.",
-    })
   }
 
   const handleEditProduct = (product: Product) => {
@@ -204,50 +242,83 @@ export default function AdminDashboard() {
     setIsProductModalOpen(true)
   }
 
-  const handleUpdateProduct = () => {
+  const handleUpdateProduct = async () => {
     if (!editingProduct) return
 
-    const updatedProducts = products.map((p) => (p.id === editingProduct.id ? { ...p, ...productForm } : p))
-    setProducts(updatedProducts)
-    setEditingProduct(null)
-    setProductForm({})
-    setIsProductModalOpen(false)
-    toast({
-      title: "Product Updated",
-      description: "Product has been updated successfully.",
-    })
+    try {
+      const updatedProduct = await updateProduct(editingProduct.id, productForm)
+
+      setProducts(products.map((p) => (p.id === editingProduct.id ? updatedProduct : p)))
+      setEditingProduct(null)
+      setProductForm({})
+      setIsProductModalOpen(false)
+      toast({
+        title: "Product Updated",
+        description: "Product has been updated successfully.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update product. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleDeleteProduct = (id: number) => {
-    setProducts(products.filter((p) => p.id !== id))
-    toast({
-      title: "Product Deleted",
-      description: "Product has been removed successfully.",
-    })
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteProduct(id)
+      setProducts(products.filter((p) => p.id !== id))
+      toast({
+        title: "Product Deleted",
+        description: "Product has been removed successfully.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete product. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleToggleProductStatus = (id: number) => {
-    const updatedProducts = products.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
-    setProducts(updatedProducts)
+  const handleToggleProductStatus = async (id: string) => {
+    try {
+      const updatedProduct = await toggleProductStatus(id)
+      setProducts(products.map((p) => (p.id === id ? updatedProduct : p)))
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update product status.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Similar handlers for testimonials and Instagram posts
-  const handleAddTestimonial = () => {
-    const newTestimonial: Testimonial = {
-      id: Date.now(),
-      name: testimonialForm.name || "",
-      role: testimonialForm.role || "",
-      content: testimonialForm.content || "",
-      rating: testimonialForm.rating || 5,
-      isActive: true,
+  const handleAddTestimonial = async () => {
+    try {
+      const newTestimonial = await createTestimonial({
+        name: testimonialForm.name || "",
+        role: testimonialForm.role || "",
+        content: testimonialForm.content || "",
+        rating: testimonialForm.rating || 5,
+      })
+
+      setTestimonials([newTestimonial, ...testimonials])
+      setTestimonialForm({})
+      setIsTestimonialModalOpen(false)
+      toast({
+        title: "Testimonial Added",
+        description: "New testimonial has been added successfully.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add testimonial. Please try again.",
+        variant: "destructive",
+      })
     }
-    setTestimonials([...testimonials, newTestimonial])
-    setTestimonialForm({})
-    setIsTestimonialModalOpen(false)
-    toast({
-      title: "Testimonial Added",
-      description: "New testimonial has been added successfully.",
-    })
   }
 
   const handleAddInstagramPost = () => {
@@ -265,6 +336,26 @@ export default function AdminDashboard() {
       title: "Instagram Post Added",
       description: "New Instagram post has been added successfully.",
     })
+  }
+
+  const handleToggleTestimonialStatus = (id: string) => {
+    const updated = testimonials.map((t) => (t.id === id ? { ...t, isActive: !t.isActive } : t))
+    setTestimonials(updated)
+  }
+
+  const handleDeleteTestimonial = (id: string) => {
+    setTestimonials(testimonials.filter((t) => t.id !== id))
+  }
+
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Crown className="h-12 w-12 text-yellow-400 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -447,7 +538,7 @@ export default function AdminDashboard() {
                       <Card key={product.id} className={`${!product.isActive ? "opacity-50" : ""}`}>
                         <div className="relative">
                           <Image
-                            src={product.image || "/placeholder.svg"}
+                            src={product.image_url || "/placeholder.svg"}
                             alt={product.name}
                             width={300}
                             height={200}
@@ -587,12 +678,7 @@ export default function AdminDashboard() {
                                 </div>
                                 <Switch
                                   checked={testimonial.isActive}
-                                  onCheckedChange={() => {
-                                    const updated = testimonials.map((t) =>
-                                      t.id === testimonial.id ? { ...t, isActive: !t.isActive } : t,
-                                    )
-                                    setTestimonials(updated)
-                                  }}
+                                  onCheckedChange={() => handleToggleTestimonialStatus(testimonial.id)}
                                 />
                               </div>
                               <p className="text-gray-700 mb-3 italic">"{testimonial.content}"</p>
@@ -608,7 +694,7 @@ export default function AdminDashboard() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => setTestimonials(testimonials.filter((t) => t.id !== testimonial.id))}
+                                onClick={() => handleDeleteTestimonial(testimonial.id)}
                                 className="text-red-600 hover:text-red-700"
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -775,7 +861,7 @@ export default function AdminDashboard() {
                         <Input
                           id="founderName"
                           value={siteSettings.founderName}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, founderName: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, founderName: e.target.value })}
                         />
                       </div>
                       <div>
@@ -783,7 +869,7 @@ export default function AdminDashboard() {
                         <Input
                           id="founderTitle"
                           value={siteSettings.founderTitle}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, founderTitle: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, founderTitle: e.target.value })}
                         />
                       </div>
                       <div>
@@ -791,7 +877,7 @@ export default function AdminDashboard() {
                         <Textarea
                           id="aboutText"
                           value={siteSettings.aboutText}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, aboutText: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, aboutText: e.target.value })}
                           rows={8}
                           placeholder="Enter the about section content..."
                         />
@@ -842,7 +928,7 @@ export default function AdminDashboard() {
                         <Input
                           id="brandName"
                           value={siteSettings.brandName}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, brandName: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, brandName: e.target.value })}
                         />
                       </div>
                       <div>
@@ -850,7 +936,7 @@ export default function AdminDashboard() {
                         <Input
                           id="tagline"
                           value={siteSettings.tagline}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, tagline: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, tagline: e.target.value })}
                         />
                       </div>
                       <div>
@@ -858,7 +944,7 @@ export default function AdminDashboard() {
                         <Input
                           id="heroTitle"
                           value={siteSettings.heroTitle}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, heroTitle: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, heroTitle: e.target.value })}
                         />
                       </div>
                       <div>
@@ -866,7 +952,7 @@ export default function AdminDashboard() {
                         <Input
                           id="heroSubtitle"
                           value={siteSettings.heroSubtitle}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, heroSubtitle: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, heroSubtitle: e.target.value })}
                         />
                       </div>
                     </div>
@@ -876,7 +962,7 @@ export default function AdminDashboard() {
                         <Input
                           id="whatsappNumber"
                           value={siteSettings.whatsappNumber}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, whatsappNumber: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, whatsappNumber: e.target.value })}
                           placeholder="2349057244762"
                         />
                       </div>
@@ -885,7 +971,7 @@ export default function AdminDashboard() {
                         <Input
                           id="instagramHandle"
                           value={siteSettings.instagramHandle}
-                          onChange={(e) => setSiteSettings({ ...siteSettings, instagramHandle: e.target.value })}
+                          onChange={(e) => setSiteSettingsState({ ...siteSettings, instagramHandle: e.target.value })}
                           placeholder="@Minis_Luxury"
                         />
                       </div>

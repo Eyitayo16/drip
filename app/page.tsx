@@ -9,110 +9,88 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Instagram, MessageCircle, Star, ShoppingBag, Crown, Sparkles, MapPin, ChevronRight } from "lucide-react"
 import Image from "next/image"
+import { getProducts } from "@/lib/api/products"
+import { getTestimonials } from "@/lib/api/testimonials"
+import { getSiteSettings } from "@/lib/api/settings"
+import type { Database } from "@/types/supabase"
 
-// Product data structure for easy admin updates
-const products = [
-  {
-    id: 1,
-    name: "Royal Street Hoodie",
-    category: "Unisex Fashion",
-    price: "₦45,000",
-    image: "/IMG-20250618-WA0001.jpg?height=400&width=300",
-    description: "Premium streetwear meets luxury comfort",
-    badge: "Trending",
-  },
-  {
-    id: 2,
-    name: "Gold Chain Luxury Set",
-    category: "Jewelry",
-    price: "₦120,000",
-    image: "/placeholder.svg?height=400&width=300",
-    description: "18k gold-plated statement piece",
-    badge: "Limited",
-  },
-  {
-    id: 3,
-    name: "MINIS Signature Snapback",
-    category: "Accessories",
-    price: "₦25,000",
-    image: "/placeholder.svg?height=400&width=300",
-    description: "Custom embroidered premium cap",
-    badge: "New Drop",
-  },
-  {
-    id: 4,
-    name: "Luxury Tracksuit Set",
-    category: "Unisex Fashion",
-    price: "₦85,000",
-    image: "/placeholder.svg?height=400&width=300",
-    description: "Italian fabric, Nigerian craftsmanship",
-    badge: "Best Seller",
-  },
-  {
-    id: 5,
-    name: "Diamond Stud Earrings",
-    category: "Jewelry",
-    price: "₦75,000",
-    image: "/placeholder.svg?height=400&width=300",
-    description: "Cubic zirconia premium finish",
-    badge: "Exclusive",
-  },
-  {
-    id: 6,
-    name: "Designer Cargo Pants",
-    category: "Fashion",
-    price: "₦55,000",
-    image: "/placeholder.svg?height=400&width=300",
-    description: "Military-inspired luxury streetwear",
-    badge: "Hot",
-  },
-]
-
-const testimonials = [
-  {
-    name: "Adunni Ade",
-    role: "Nollywood Actress",
-    content: "Minis Umar transformed my entire wardrobe. The attention to detail and luxury pieces are unmatched!",
-    rating: 5,
-  },
-  {
-    name: "David Adeleke",
-    role: "Music Executive",
-    content: "From red carpet events to casual street looks, MINIS LUXURY delivers excellence every time.",
-    rating: 5,
-  },
-  {
-    name: "Temi Otedola",
-    role: "Fashion Influencer",
-    content: "The personal shopping experience is world-class. Umar has an eye for luxury that's truly exceptional.",
-    rating: 5,
-  },
-]
+type Product = Database["public"]["Tables"]["products"]["Row"]
+type Testimonial = Database["public"]["Tables"]["testimonials"]["Row"]
 
 export default function MinisLuxuryLanding() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [siteSettings, setSiteSettings] = useState<Record<string, string>>({})
   const [currentTestimonial, setCurrentTestimonial] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
   const { scrollYProgress } = useScroll()
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"])
   const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0])
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)
-    }, 5000)
-    return () => clearInterval(interval)
+    loadData()
   }, [])
 
+  const loadData = async () => {
+    try {
+      const [productsData, testimonialsData, settingsData] = await Promise.all([
+        getProducts(true), // Only active products
+        getTestimonials(true), // Only active testimonials
+        getSiteSettings(),
+      ])
+
+      setProducts(productsData)
+      setTestimonials(testimonialsData)
+      setSiteSettings(settingsData)
+    } catch (error) {
+      console.error("Error loading data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (testimonials.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)
+      }, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [testimonials])
+
   const handleWhatsAppProduct = (productName: string) => {
-    const message = `Hello Minis Umar! I want to get this product ${productName}.`
-    const whatsappUrl = `https://wa.me/2349057244762?text=${encodeURIComponent(message)}`
+    const message = `Hello ${siteSettings.founder_name || "Minis Umar"}! I want to get this product ${productName}.`
+    const whatsappUrl = `https://wa.me/${siteSettings.whatsapp_number || "2349057244762"}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
   }
 
   const handleWhatsAppBooking = () => {
-    const message = "Hi Minis Umar! I'd like to book a personal shopping session."
-    const whatsappUrl = `https://wa.me/2349057244762?text=${encodeURIComponent(message)}`
+    const message = `Hi ${siteSettings.founder_name || "Minis Umar"}! I'd like to book a personal shopping session.`
+    const whatsappUrl = `https://wa.me/${siteSettings.whatsapp_number || "2349057244762"}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
   }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <Crown className="h-16 w-16 text-yellow-400 mx-auto mb-4 animate-pulse" />
+          <p className="text-white text-xl">Loading luxury experience...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Use dynamic data from Supabase
+  const brandName = siteSettings.brand_name || "MINIS LUXURY"
+  const tagline = siteSettings.tagline || "Where Nigerian Street Fashion Meets Global Luxury"
+  const heroTitle = siteSettings.hero_title || "MINIS LUXURY"
+  const heroSubtitle = siteSettings.hero_subtitle || "Where Nigerian Street Fashion Meets Global Luxury"
+  const founderName = siteSettings.founder_name || "Muhammed Umar Faruq"
+  const founderTitle = siteSettings.founder_title || "Founder & Creative Director"
+  const aboutText =
+    siteSettings.about_text || "From the vibrant streets of Nigeria to the global luxury fashion scene..."
+  const instagramHandle = siteSettings.instagram_handle || "@Minis_Luxury"
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
@@ -149,7 +127,7 @@ export default function MinisLuxuryLanding() {
           >
             <Crown className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
             <h1 className="text-6xl md:text-8xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-              MINIS LUXURY
+              {heroTitle}
             </h1>
           </motion.div>
 
@@ -159,7 +137,7 @@ export default function MinisLuxuryLanding() {
             transition={{ duration: 1, delay: 0.5 }}
             className="text-xl md:text-2xl mb-8 text-gray-300 font-light"
           >
-            Where Nigerian Street Fashion Meets Global Luxury
+            {heroSubtitle}
           </motion.p>
 
           <motion.div
@@ -217,8 +195,8 @@ export default function MinisLuxuryLanding() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 viewport={{ once: true }}
               >
-                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-yellow-400">Meet Muhammed Umar Faruq</h2>
-                <p className="text-xl text-gray-300 mb-6">Founder & Creative Director</p>
+                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-yellow-400">Meet {founderName}</h2>
+                <p className="text-xl text-gray-300 mb-6">{founderTitle}</p>
               </motion.div>
 
               <motion.div
@@ -228,10 +206,7 @@ export default function MinisLuxuryLanding() {
                 viewport={{ once: true }}
                 className="space-y-4 text-gray-300 leading-relaxed"
               >
-                <p>
-                  From the vibrant streets of Nigeria to the global luxury fashion scene, Muhammed Umar Faruq has built
-                  MINIS LUXURY into the premier destination for discerning fashion enthusiasts.
-                </p>
+                <p>{aboutText}</p>
                 <p>
                   With over 8 years of experience in luxury fashion curation and personal styling, Umar has dressed
                   celebrities, executives, and fashion-forward individuals across Africa and beyond.
@@ -454,10 +429,10 @@ export default function MinisLuxuryLanding() {
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-yellow-400">Daily Luxury Drops</h2>
             <p className="text-xl text-gray-300 mb-8">
-              Follow @Minis_Luxury for the latest collections and style inspiration
+              Follow {instagramHandle} for the latest collections and style inspiration
             </p>
             <Button
-              onClick={() => window.open("https://instagram.com/minis_luxury", "_blank")}
+              onClick={() => window.open(`https://instagram.com/${instagramHandle.replace("@", "")}`, "_blank")}
               variant="outline"
               className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
               size="lg"
@@ -523,7 +498,7 @@ export default function MinisLuxuryLanding() {
                 </div>
                 <div>
                   <p className="font-semibold text-white">WhatsApp</p>
-                  <p className="text-gray-400">+234 905 724 4762</p>
+                  <p className="text-gray-400">{siteSettings.whatsapp_number || "+234 905 724 4762"}</p>
                 </div>
               </div>
 
@@ -533,7 +508,7 @@ export default function MinisLuxuryLanding() {
                 </div>
                 <div>
                   <p className="font-semibold text-white">Instagram</p>
-                  <p className="text-gray-400">@Minis_Luxury</p>
+                  <p className="text-gray-400">{instagramHandle}</p>
                 </div>
               </div>
 
@@ -598,14 +573,14 @@ export default function MinisLuxuryLanding() {
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
               <Crown className="h-8 w-8 text-yellow-400" />
-              <h3 className="text-2xl font-bold text-yellow-400">MINIS LUXURY</h3>
+              <h3 className="text-2xl font-bold text-yellow-400">{brandName}</h3>
             </div>
-            <p className="text-gray-400 mb-6">Where Nigerian Street Fashion Meets Global Luxury</p>
+            <p className="text-gray-400 mb-6">{tagline}</p>
             <div className="flex justify-center gap-6 mb-8">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => window.open("https://instagram.com/minis_luxury", "_blank")}
+                onClick={() => window.open(`https://instagram.com/${instagramHandle.replace("@", "")}`, "_blank")}
                 className="text-gray-400 hover:text-yellow-400"
               >
                 <Instagram className="h-5 w-5" />
