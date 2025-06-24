@@ -2,18 +2,21 @@ import { fallbackTestimonials } from "@/lib/fallback-data"
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  return !!(
+    typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
 }
 
 export async function getTestimonials(activeOnly = false) {
-  // If Supabase is not configured, return fallback data
+  // If Supabase is not configured, return fallback data immediately
   if (!isSupabaseConfigured()) {
     console.log("Supabase not configured, using fallback testimonials")
     return activeOnly ? fallbackTestimonials.filter((t) => t.is_active) : fallbackTestimonials
   }
 
   try {
-    // Dynamic import to avoid errors when Supabase is not configured
     const { createClient } = await import("@supabase/supabase-js")
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -30,22 +33,20 @@ export async function getTestimonials(activeOnly = false) {
     const { data, error } = await query
 
     if (error) {
-      console.error("Error fetching testimonials:", error)
-      // Return fallback data on error
+      console.log("Supabase error, using fallback testimonials:", error.message)
       return activeOnly ? fallbackTestimonials.filter((t) => t.is_active) : fallbackTestimonials
     }
 
-    return data || []
+    return data || fallbackTestimonials
   } catch (error) {
-    console.error("Error connecting to Supabase:", error)
-    // Return fallback data on connection error
+    console.log("Connection error, using fallback testimonials:", error)
     return activeOnly ? fallbackTestimonials.filter((t) => t.is_active) : fallbackTestimonials
   }
 }
 
 export async function createTestimonial(testimonial: any) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -55,20 +56,18 @@ export async function createTestimonial(testimonial: any) {
     const { data, error } = await supabase.from("testimonials").insert(testimonial).select().single()
 
     if (error) {
-      console.error("Error creating testimonial:", error)
-      throw new Error("Failed to create testimonial")
+      throw new Error(`Failed to create testimonial: ${error.message}`)
     }
 
     return data
   } catch (error) {
-    console.error("Error creating testimonial:", error)
-    throw new Error("Failed to create testimonial")
+    throw new Error(`Failed to create testimonial: ${error}`)
   }
 }
 
 export async function updateTestimonial(id: string, updates: any) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -78,20 +77,18 @@ export async function updateTestimonial(id: string, updates: any) {
     const { data, error } = await supabase.from("testimonials").update(updates).eq("id", id).select().single()
 
     if (error) {
-      console.error("Error updating testimonial:", error)
-      throw new Error("Failed to update testimonial")
+      throw new Error(`Failed to update testimonial: ${error.message}`)
     }
 
     return data
   } catch (error) {
-    console.error("Error updating testimonial:", error)
-    throw new Error("Failed to update testimonial")
+    throw new Error(`Failed to update testimonial: ${error}`)
   }
 }
 
 export async function deleteTestimonial(id: string) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -101,20 +98,18 @@ export async function deleteTestimonial(id: string) {
     const { error } = await supabase.from("testimonials").delete().eq("id", id)
 
     if (error) {
-      console.error("Error deleting testimonial:", error)
-      throw new Error("Failed to delete testimonial")
+      throw new Error(`Failed to delete testimonial: ${error.message}`)
     }
 
     return true
   } catch (error) {
-    console.error("Error deleting testimonial:", error)
-    throw new Error("Failed to delete testimonial")
+    throw new Error(`Failed to delete testimonial: ${error}`)
   }
 }
 
 export async function toggleTestimonialStatus(id: string) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -128,7 +123,7 @@ export async function toggleTestimonialStatus(id: string) {
       .single()
 
     if (fetchError) {
-      throw new Error("Failed to fetch testimonial status")
+      throw new Error(`Failed to fetch testimonial: ${fetchError.message}`)
     }
 
     const { data, error } = await supabase
@@ -139,13 +134,11 @@ export async function toggleTestimonialStatus(id: string) {
       .single()
 
     if (error) {
-      console.error("Error toggling testimonial status:", error)
-      throw new Error("Failed to toggle testimonial status")
+      throw new Error(`Failed to toggle testimonial status: ${error.message}`)
     }
 
     return data
   } catch (error) {
-    console.error("Error toggling testimonial status:", error)
-    throw new Error("Failed to toggle testimonial status")
+    throw new Error(`Failed to toggle testimonial status: ${error}`)
   }
 }

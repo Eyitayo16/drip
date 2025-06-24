@@ -2,18 +2,22 @@ import { fallbackProducts } from "@/lib/fallback-data"
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  return !!(
+    typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
 }
 
 export async function getProducts(activeOnly = false) {
-  // If Supabase is not configured, return fallback data
+  // If Supabase is not configured, return fallback data immediately
   if (!isSupabaseConfigured()) {
     console.log("Supabase not configured, using fallback data")
     return activeOnly ? fallbackProducts.filter((p) => p.is_active) : fallbackProducts
   }
 
   try {
-    // Dynamic import to avoid errors when Supabase is not configured
+    // Only try to connect to Supabase if it's configured
     const { createClient } = await import("@supabase/supabase-js")
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -30,22 +34,20 @@ export async function getProducts(activeOnly = false) {
     const { data, error } = await query
 
     if (error) {
-      console.error("Error fetching products:", error)
-      // Return fallback data on error
+      console.log("Supabase error, using fallback data:", error.message)
       return activeOnly ? fallbackProducts.filter((p) => p.is_active) : fallbackProducts
     }
 
-    return data || []
+    return data || fallbackProducts
   } catch (error) {
-    console.error("Error connecting to Supabase:", error)
-    // Return fallback data on connection error
+    console.log("Connection error, using fallback data:", error)
     return activeOnly ? fallbackProducts.filter((p) => p.is_active) : fallbackProducts
   }
 }
 
 export async function createProduct(product: any) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -55,20 +57,18 @@ export async function createProduct(product: any) {
     const { data, error } = await supabase.from("products").insert(product).select().single()
 
     if (error) {
-      console.error("Error creating product:", error)
-      throw new Error("Failed to create product")
+      throw new Error(`Failed to create product: ${error.message}`)
     }
 
     return data
   } catch (error) {
-    console.error("Error creating product:", error)
-    throw new Error("Failed to create product")
+    throw new Error(`Failed to create product: ${error}`)
   }
 }
 
 export async function updateProduct(id: string, updates: any) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -78,20 +78,18 @@ export async function updateProduct(id: string, updates: any) {
     const { data, error } = await supabase.from("products").update(updates).eq("id", id).select().single()
 
     if (error) {
-      console.error("Error updating product:", error)
-      throw new Error("Failed to update product")
+      throw new Error(`Failed to update product: ${error.message}`)
     }
 
     return data
   } catch (error) {
-    console.error("Error updating product:", error)
-    throw new Error("Failed to update product")
+    throw new Error(`Failed to update product: ${error}`)
   }
 }
 
 export async function deleteProduct(id: string) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -101,20 +99,18 @@ export async function deleteProduct(id: string) {
     const { error } = await supabase.from("products").delete().eq("id", id)
 
     if (error) {
-      console.error("Error deleting product:", error)
-      throw new Error("Failed to delete product")
+      throw new Error(`Failed to delete product: ${error.message}`)
     }
 
     return true
   } catch (error) {
-    console.error("Error deleting product:", error)
-    throw new Error("Failed to delete product")
+    throw new Error(`Failed to delete product: ${error}`)
   }
 }
 
 export async function toggleProductStatus(id: string) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase not configured. Please set up your environment variables.")
+    throw new Error("Database not configured. Please contact administrator.")
   }
 
   try {
@@ -128,7 +124,7 @@ export async function toggleProductStatus(id: string) {
       .single()
 
     if (fetchError) {
-      throw new Error("Failed to fetch product status")
+      throw new Error(`Failed to fetch product: ${fetchError.message}`)
     }
 
     const { data, error } = await supabase
@@ -139,13 +135,11 @@ export async function toggleProductStatus(id: string) {
       .single()
 
     if (error) {
-      console.error("Error toggling product status:", error)
-      throw new Error("Failed to toggle product status")
+      throw new Error(`Failed to toggle product status: ${error.message}`)
     }
 
     return data
   } catch (error) {
-    console.error("Error toggling product status:", error)
-    throw new Error("Failed to toggle product status")
+    throw new Error(`Failed to toggle product status: ${error}`)
   }
 }
