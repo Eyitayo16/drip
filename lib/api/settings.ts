@@ -88,3 +88,51 @@ export async function updateMultipleSettings(settings: Record<string, string>) {
     throw new Error(`Failed to update settings: ${error}`)
   }
 }
+
+export async function setSiteSettings(settings: Record<string, string>) {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Database not configured. Please contact administrator.")
+  }
+
+  try {
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
+    const settingsArray = Object.entries(settings).map(([key, value]) => ({ key, value }))
+
+    const { data, error } = await supabase.from("site_settings").upsert(settingsArray, { onConflict: "key" }).select()
+
+    if (error) {
+      throw new Error(`Failed to update settings: ${error.message}`)
+    }
+
+    return data
+  } catch (error) {
+    throw new Error(`Failed to update settings: ${error}`)
+  }
+}
+
+export async function setSiteSetting(key: string, value: string) {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Database not configured. Please contact administrator.")
+  }
+
+  try {
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
+    const { data, error } = await supabase
+      .from("site_settings")
+      .upsert({ key, value }, { onConflict: "key" })
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to update setting: ${error.message}`)
+    }
+
+    return data
+  } catch (error) {
+    throw new Error(`Failed to update setting: ${error}`)
+  }
+}
