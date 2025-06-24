@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "check-env": "node scripts/check-env.js",
     "dev": "next dev",
     "lint": "next lint",
+    "seed": "node scripts/seed-database.js",
     "start": "next start"
   },
   "dependencies": {

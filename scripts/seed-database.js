@@ -1,7 +1,34 @@
-import { createServerClient } from "@/lib/supabase"
-import { defaultSiteSettings } from "@/lib/api/settings"
+import { createClient } from "@supabase/supabase-js"
 
-const supabase = createServerClient()
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error("❌ Missing Supabase environment variables")
+  console.log("Please ensure you have set:")
+  console.log("- NEXT_PUBLIC_SUPABASE_URL")
+  console.log("- SUPABASE_SERVICE_ROLE_KEY")
+  process.exit(1)
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+// Default site settings
+const defaultSiteSettings = {
+  site_title: "DRIP WITH MINIS - Luxury Fashion Concierge",
+  site_description: "Nigeria's premier luxury fashion and personal shopping service",
+  hero_title: "DRIP WITH MINIS",
+  hero_subtitle: "Luxury is not a label — it's a lifestyle. Drip different.",
+  whatsapp_number: "2349057244762",
+  instagram_handle: "@MinisLuxury",
+  email: "hello@dripwithminis.com",
+  featured_brands: "Chanel,Dior,Rick Owens,Jacquemus,Louis Vuitton,Off-White,Chrome Hearts",
+  services_enabled: "true",
+  testimonials_enabled: "true",
+  instagram_feed_enabled: "true",
+  newsletter_enabled: "true",
+}
 
 async function seedDatabase() {
   console.log("🌱 Starting database seeding...")
@@ -14,7 +41,7 @@ async function seedDatabase() {
       value,
     }))
 
-    const { error: settingsError } = await supabase.from("site_settings").upsert(settingsArray)
+    const { error: settingsError } = await supabase.from("site_settings").upsert(settingsArray, { onConflict: "key" })
 
     if (settingsError) {
       console.error("Error seeding site settings:", settingsError)
@@ -33,6 +60,8 @@ async function seedDatabase() {
         description: "Premium streetwear meets luxury comfort",
         badge: "Trending",
         sort_order: 1,
+        is_featured: true,
+        in_stock: true,
       },
       {
         name: "Gold Chain Luxury Set",
@@ -42,6 +71,8 @@ async function seedDatabase() {
         description: "18k gold-plated statement piece",
         badge: "Limited",
         sort_order: 2,
+        is_featured: true,
+        in_stock: true,
       },
       {
         name: "MINIS Signature Snapback",
@@ -51,6 +82,8 @@ async function seedDatabase() {
         description: "Custom embroidered premium cap",
         badge: "New Drop",
         sort_order: 3,
+        is_featured: false,
+        in_stock: true,
       },
       {
         name: "Luxury Tracksuit Set",
@@ -60,6 +93,8 @@ async function seedDatabase() {
         description: "Italian fabric, Nigerian craftsmanship",
         badge: "Best Seller",
         sort_order: 4,
+        is_featured: true,
+        in_stock: true,
       },
       {
         name: "Diamond Stud Earrings",
@@ -69,6 +104,8 @@ async function seedDatabase() {
         description: "Cubic zirconia premium finish",
         badge: "Exclusive",
         sort_order: 5,
+        is_featured: false,
+        in_stock: true,
       },
       {
         name: "Designer Cargo Pants",
@@ -78,10 +115,12 @@ async function seedDatabase() {
         description: "Military-inspired luxury streetwear",
         badge: "Hot",
         sort_order: 6,
+        is_featured: false,
+        in_stock: true,
       },
     ]
 
-    const { error: productsError } = await supabase.from("products").upsert(sampleProducts)
+    const { error: productsError } = await supabase.from("products").upsert(sampleProducts, { onConflict: "name" })
 
     if (productsError) {
       console.error("Error seeding products:", productsError)
@@ -98,6 +137,7 @@ async function seedDatabase() {
         content: "Minis Umar transformed my entire wardrobe. The attention to detail and luxury pieces are unmatched!",
         rating: 5,
         sort_order: 1,
+        is_featured: true,
       },
       {
         name: "David Adeleke",
@@ -105,6 +145,7 @@ async function seedDatabase() {
         content: "From red carpet events to casual street looks, MINIS LUXURY delivers excellence every time.",
         rating: 5,
         sort_order: 2,
+        is_featured: true,
       },
       {
         name: "Temi Otedola",
@@ -113,10 +154,29 @@ async function seedDatabase() {
           "The personal shopping experience is world-class. Umar has an eye for luxury that's truly exceptional.",
         rating: 5,
         sort_order: 3,
+        is_featured: true,
+      },
+      {
+        name: "Kemi Adetiba",
+        role: "Film Director",
+        content: "MINIS LUXURY understands my style perfectly. Every piece they source is exactly what I need.",
+        rating: 5,
+        sort_order: 4,
+        is_featured: false,
+      },
+      {
+        name: "Banky W",
+        role: "Artist & Entrepreneur",
+        content: "The quality and authenticity of pieces from MINIS is unmatched. Highly recommended!",
+        rating: 5,
+        sort_order: 5,
+        is_featured: false,
       },
     ]
 
-    const { error: testimonialsError } = await supabase.from("testimonials").upsert(sampleTestimonials)
+    const { error: testimonialsError } = await supabase
+      .from("testimonials")
+      .upsert(sampleTestimonials, { onConflict: "name,role" })
 
     if (testimonialsError) {
       console.error("Error seeding testimonials:", testimonialsError)
@@ -129,55 +189,65 @@ async function seedDatabase() {
     const sampleInstagramPosts = [
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post1",
-        caption: "New luxury drop! 🔥 #MinisLuxury",
+        caption: "New luxury drop! 🔥 #MinisLuxury #LuxuryFashion",
         likes_count: 245,
         sort_order: 1,
+        is_featured: true,
       },
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post2",
-        caption: "Street fashion meets luxury ✨",
+        caption: "Street fashion meets luxury ✨ #StreetLuxury",
         likes_count: 189,
         sort_order: 2,
+        is_featured: true,
       },
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post3",
-        caption: "Behind the scenes styling session 👑",
+        caption: "Behind the scenes styling session 👑 #PersonalStylist",
         likes_count: 312,
         sort_order: 3,
+        is_featured: true,
       },
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post4",
-        caption: "Custom jewelry pieces ✨💎",
+        caption: "Custom jewelry pieces ✨💎 #LuxuryJewelry",
         likes_count: 156,
         sort_order: 4,
+        is_featured: false,
       },
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post5",
-        caption: "Client transformation Tuesday 🔥",
+        caption: "Client transformation Tuesday 🔥 #Transformation",
         likes_count: 278,
         sort_order: 5,
+        is_featured: false,
       },
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post6",
-        caption: "Luxury streetwear collection 👑",
+        caption: "Luxury streetwear collection 👑 #Streetwear",
         likes_count: 203,
         sort_order: 6,
+        is_featured: false,
       },
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post7",
-        caption: "Personal shopping experience ✨",
+        caption: "Personal shopping experience ✨ #PersonalShopping",
         likes_count: 167,
         sort_order: 7,
+        is_featured: false,
       },
       {
         image_url: "/placeholder.svg?height=300&width=300&text=Post8",
-        caption: "Nigerian fashion meets global luxury 🌍",
+        caption: "Nigerian fashion meets global luxury 🌍 #NigerianFashion",
         likes_count: 234,
         sort_order: 8,
+        is_featured: false,
       },
     ]
 
-    const { error: instagramError } = await supabase.from("instagram_posts").upsert(sampleInstagramPosts)
+    const { error: instagramError } = await supabase
+      .from("instagram_posts")
+      .upsert(sampleInstagramPosts, { onConflict: "caption" })
 
     if (instagramError) {
       console.error("Error seeding Instagram posts:", instagramError)
@@ -185,9 +255,52 @@ async function seedDatabase() {
       console.log("✅ Instagram posts seeded successfully")
     }
 
-    console.log("🎉 Database seeding completed successfully!")
+    // 5. Create admin user (optional)
+    console.log("👤 Creating admin user...")
+    const { data: adminUser, error: adminError } = await supabase.auth.admin.createUser({
+      email: "admin@dripwithminis.com",
+      password: "MinisLuxury2024!",
+      email_confirm: true,
+      user_metadata: {
+        role: "owner",
+        full_name: "MINIS Admin",
+      },
+    })
+
+    if (adminError) {
+      console.log("ℹ️ Admin user creation skipped (may already exist):", adminError.message)
+    } else {
+      console.log("✅ Admin user created successfully")
+
+      // Add user profile
+      const { error: profileError } = await supabase.from("user_profiles").upsert({
+        id: adminUser.user.id,
+        email: "admin@dripwithminis.com",
+        full_name: "MINIS Admin",
+        role: "owner",
+      })
+
+      if (profileError) {
+        console.error("Error creating admin profile:", profileError)
+      } else {
+        console.log("✅ Admin profile created successfully")
+      }
+    }
+
+    console.log("\n🎉 Database seeding completed successfully!")
+    console.log("\n📋 Summary:")
+    console.log("- Site settings configured")
+    console.log("- 6 sample products added")
+    console.log("- 5 testimonials added")
+    console.log("- 8 Instagram posts added")
+    console.log("- Admin user created (admin@dripwithminis.com)")
+    console.log("\n🔐 Admin Login:")
+    console.log("Email: admin@dripwithminis.com")
+    console.log("Password: MinisLuxury2024!")
+    console.log("\n🚀 Your MINIS LUXURY platform is ready!")
   } catch (error) {
     console.error("❌ Error during database seeding:", error)
+    process.exit(1)
   }
 }
 
