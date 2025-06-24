@@ -56,7 +56,7 @@ export default function MinisLuxuryLanding() {
       }, 5000)
       return () => clearInterval(interval)
     }
-  }, [testimonials])
+  }, [testimonials.length])
 
   const handleWhatsAppProduct = (productName: string) => {
     const message = `Hello ${siteSettings.founder_name || "Minis Umar"}! I want to get this product ${productName}.`
@@ -255,53 +255,68 @@ export default function MinisLuxuryLanding() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                whileHover={{ y: -10 }}
-                className="group"
+          {products.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {products.map((product, index) => (
+                <motion.div
+                  key={product.id}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -10 }}
+                  className="group"
+                >
+                  <Card className="bg-black border-gray-800 overflow-hidden hover:border-yellow-400/50 transition-all duration-300">
+                    <div className="relative overflow-hidden">
+                      <Image
+                        src={product.image || "/placeholder.svg"}
+                        alt={product.name}
+                        width={300}
+                        height={400}
+                        className="w-full h-80 object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      <div className="absolute top-4 left-4">
+                        <Badge className="bg-yellow-400 text-black font-semibold">{product.badge}</Badge>
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </div>
+
+                    <CardContent className="p-6">
+                      <div className="mb-4">
+                        <p className="text-sm text-yellow-400 mb-1">{product.category}</p>
+                        <h3 className="text-xl font-bold text-white mb-2">{product.name}</h3>
+                        <p className="text-gray-400 text-sm mb-3">{product.description}</p>
+                        <p className="text-2xl font-bold text-yellow-400">{product.price}</p>
+                      </div>
+
+                      <Button
+                        onClick={() => handleWhatsAppProduct(product.name)}
+                        className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                        size="lg"
+                      >
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Buy Now
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Crown className="h-16 w-16 text-yellow-400/50 mx-auto mb-4" />
+              <p className="text-gray-400 text-lg">New luxury collections coming soon...</p>
+              <Button
+                onClick={handleWhatsAppBooking}
+                variant="outline"
+                className="mt-4 border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
               >
-                <Card className="bg-black border-gray-800 overflow-hidden hover:border-yellow-400/50 transition-all duration-300">
-                  <div className="relative overflow-hidden">
-                    <Image
-                      src={product.image || "/placeholder.svg"}
-                      alt={product.name}
-                      width={300}
-                      height={400}
-                      className="w-full h-80 object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute top-4 left-4">
-                      <Badge className="bg-yellow-400 text-black font-semibold">{product.badge}</Badge>
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  </div>
-
-                  <CardContent className="p-6">
-                    <div className="mb-4">
-                      <p className="text-sm text-yellow-400 mb-1">{product.category}</p>
-                      <h3 className="text-xl font-bold text-white mb-2">{product.name}</h3>
-                      <p className="text-gray-400 text-sm mb-3">{product.description}</p>
-                      <p className="text-2xl font-bold text-yellow-400">{product.price}</p>
-                    </div>
-
-                    <Button
-                      onClick={() => handleWhatsAppProduct(product.name)}
-                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
-                      size="lg"
-                    >
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      Buy Now
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Get Notified
+              </Button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -391,29 +406,33 @@ export default function MinisLuxuryLanding() {
           </div>
 
           {/* Testimonials */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center"
-          >
-            <h3 className="text-2xl font-bold text-yellow-400 mb-8">What Our VIP Clients Say</h3>
-            <Card className="bg-gray-800 border-gray-700 max-w-2xl mx-auto">
-              <CardContent className="p-8">
-                <div className="flex justify-center mb-4">
-                  {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-lg text-gray-300 mb-4 italic">"{testimonials[currentTestimonial].content}"</p>
-                <div>
-                  <p className="font-bold text-white">{testimonials[currentTestimonial].name}</p>
-                  <p className="text-sm text-yellow-400">{testimonials[currentTestimonial].role}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          {testimonials.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="text-center"
+            >
+              <h3 className="text-2xl font-bold text-yellow-400 mb-8">What Our VIP Clients Say</h3>
+              <Card className="bg-gray-800 border-gray-700 max-w-2xl mx-auto">
+                <CardContent className="p-8">
+                  <div className="flex justify-center mb-4">
+                    {[...Array(testimonials[currentTestimonial]?.rating || 5)].map((_, i) => (
+                      <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
+                    ))}
+                  </div>
+                  <p className="text-lg text-gray-300 mb-4 italic">
+                    "{testimonials[currentTestimonial]?.content || "Loading testimonial..."}"
+                  </p>
+                  <div>
+                    <p className="font-bold text-white">{testimonials[currentTestimonial]?.name || "Client"}</p>
+                    <p className="text-sm text-yellow-400">{testimonials[currentTestimonial]?.role || "VIP Client"}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
         </div>
       </section>
 
