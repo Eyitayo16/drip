@@ -1,83 +1,88 @@
-import { supabase } from "@/lib/supabase"
-import type { Database } from "@/types/supabase"
+import { fallbackSettings } from "@/lib/fallback-data"
 
-type SiteSetting = Database["public"]["Tables"]["site_settings"]["Row"]
+// Check if Supabase is configured
+const isSupabaseConfigured = () => {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
 
 export async function getSiteSettings() {
-  const { data, error } = await supabase.from("site_settings").select("*")
-
-  if (error) {
-    console.error("Error fetching site settings:", error)
-    throw new Error("Failed to fetch site settings")
+  // If Supabase is not configured, return fallback data
+  if (!isSupabaseConfigured()) {
+    console.log("Supabase not configured, using fallback settings")
+    return fallbackSettings
   }
 
-  // Convert array to object for easier access
-  const settings: Record<string, string> = {}
-  data?.forEach((setting) => {
-    settings[setting.key] = setting.value
-  })
+  try {
+    // Dynamic import to avoid errors when Supabase is not configured
+    const { supabase } = await import("@/lib/supabase")
 
-  return settings
+    const { data, error } = await supabase.from("site_settings").select("*")
+
+    if (error) {
+      console.error("Error fetching site settings:", error)
+      // Return fallback data on error
+      return fallbackSettings
+    }
+
+    // Convert array of settings to object
+    const settings: Record<string, string> = {}
+    data?.forEach((setting) => {
+      settings[setting.key] = setting.value
+    })
+
+    // Merge with fallback settings to ensure all keys exist
+    return { ...fallbackSettings, ...settings }
+  } catch (error) {
+    console.error("Error connecting to Supabase:", error)
+    // Return fallback data on connection error
+    return fallbackSettings
+  }
 }
 
-export async function getSiteSetting(key: string) {
-  const { data, error } = await supabase.from("site_settings").select("value").eq("key", key).single()
-
-  if (error) {
-    console.error("Error fetching site setting:", error)
-    return null
+export async function updateSiteSetting(key: string, value: string) {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase not configured. Please set up your environment variables.")
   }
 
-  return data?.value || null
-}
+  try {
+    const { supabase } = await import("@/lib/supabase")
+    const { data, error } = await supabase
+      .from("site_settings")
+      .upsert({ key, value }, { onConflict: "key" })
+      .select()
+      .single()
 
-export async function setSiteSetting(key: string, value: string) {
-  const { data, error } = await supabase.from("site_settings").upsert({ key, value }).select().single()
+    if (error) {
+      console.error("Error updating site setting:", error)
+      throw new Error("Failed to update site setting")
+    }
 
-  if (error) {
-    console.error("Error setting site setting:", error)
+    return data
+  } catch (error) {
+    console.error("Error updating site setting:", error)
     throw new Error("Failed to update site setting")
   }
-
-  return data
 }
 
-export async function setSiteSettings(settings: Record<string, string>) {
-  const settingsArray = Object.entries(settings).map(([key, value]) => ({
-    key,
-    value,
-  }))
-
-  const { data, error } = await supabase.from("site_settings").upsert(settingsArray).select()
-
-  if (error) {
-    console.error("Error setting site settings:", error)
-    throw new Error("Failed to update site settings")
+export async function updateMultipleSettings(settings: Record<string, string>) {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase not configured. Please set up your environment variables.")
   }
 
-  return data
-}
-
-// Default settings to initialize the database
-export const defaultSiteSettings = {
-  brand_name: "MINIS LUXURY",
-  tagline: "Where Nigerian Street Fashion Meets Global Luxury",
-  whatsapp_number: "2349057244762",
-  instagram_handle: "@Minis_Luxury",
-  hero_title: "MINIS LUXURY",
-  hero_subtitle: "Where Nigerian Street Fashion Meets Global Luxury",
-  about_text:
-    "From the vibrant streets of Nigeria to the global luxury fashion scene, Muhammed Umar Faruq has built MINIS LUXURY into the premier destination for discerning fashion enthusiasts.",
-  founder_name: "Muhammed Umar Faruq",
-  founder_title: "Founder & Creative Director",
-  founder_image_url: "/placeholder.svg?height=600&width=500",
-}
-
-export async function initializeDefaultSettings() {
   try {
-    await setSiteSettings(defaultSiteSettings)
-    console.log("Default site settings initialized")
+    const { supabase } = await import("@/lib/supabase")
+    const settingsArray = Object.entries(settings).map(([key, value]) => ({ key, value }))
+
+    const { data, error } = await supabase.from("site_settings").upsert(settingsArray, { onConflict: "key" }).select()
+
+    if (error) {
+      console.error("Error updating multiple settings:", error)
+      throw new Error("Failed to update settings")
+    }
+
+    return data
   } catch (error) {
-    console.error("Failed to initialize default settings:", error)
+    console.error("Error updating multiple settings:", error)
+    throw new Error("Failed to update settings")
   }
 }

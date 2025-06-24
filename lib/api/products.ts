@@ -1,111 +1,142 @@
-import { supabase } from "@/lib/supabase"
-import type { Database } from "@/types/supabase"
+import { fallbackProducts } from "@/lib/fallback-data"
 
-type Product = Database["public"]["Tables"]["products"]["Row"]
-type ProductInsert = Database["public"]["Tables"]["products"]["Insert"]
-type ProductUpdate = Database["public"]["Tables"]["products"]["Update"]
+// Check if Supabase is configured
+const isSupabaseConfigured = () => {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
 
 export async function getProducts(activeOnly = false) {
-  let query = supabase
-    .from("products")
-    .select("*")
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false })
-
-  if (activeOnly) {
-    query = query.eq("is_active", true)
+  // If Supabase is not configured, return fallback data
+  if (!isSupabaseConfigured()) {
+    console.log("Supabase not configured, using fallback data")
+    return activeOnly ? fallbackProducts.filter((p) => p.is_active) : fallbackProducts
   }
 
-  const { data, error } = await query
+  try {
+    // Dynamic import to avoid errors when Supabase is not configured
+    const { supabase } = await import("@/lib/supabase")
 
-  if (error) {
-    console.error("Error fetching products:", error)
-    throw new Error("Failed to fetch products")
+    let query = supabase
+      .from("products")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
+
+    if (activeOnly) {
+      query = query.eq("is_active", true)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("Error fetching products:", error)
+      // Return fallback data on error
+      return activeOnly ? fallbackProducts.filter((p) => p.is_active) : fallbackProducts
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error connecting to Supabase:", error)
+    // Return fallback data on connection error
+    return activeOnly ? fallbackProducts.filter((p) => p.is_active) : fallbackProducts
   }
-
-  return data || []
 }
 
-export async function getProduct(id: string) {
-  const { data, error } = await supabase.from("products").select("*").eq("id", id).single()
-
-  if (error) {
-    console.error("Error fetching product:", error)
-    throw new Error("Failed to fetch product")
+export async function createProduct(product: any) {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase not configured. Please set up your environment variables.")
   }
 
-  return data
-}
+  try {
+    const { supabase } = await import("@/lib/supabase")
+    const { data, error } = await supabase.from("products").insert(product).select().single()
 
-export async function createProduct(product: ProductInsert) {
-  const { data, error } = await supabase.from("products").insert(product).select().single()
+    if (error) {
+      console.error("Error creating product:", error)
+      throw new Error("Failed to create product")
+    }
 
-  if (error) {
+    return data
+  } catch (error) {
     console.error("Error creating product:", error)
     throw new Error("Failed to create product")
   }
-
-  return data
 }
 
-export async function updateProduct(id: string, updates: ProductUpdate) {
-  const { data, error } = await supabase.from("products").update(updates).eq("id", id).select().single()
+export async function updateProduct(id: string, updates: any) {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase not configured. Please set up your environment variables.")
+  }
 
-  if (error) {
+  try {
+    const { supabase } = await import("@/lib/supabase")
+    const { data, error } = await supabase.from("products").update(updates).eq("id", id).select().single()
+
+    if (error) {
+      console.error("Error updating product:", error)
+      throw new Error("Failed to update product")
+    }
+
+    return data
+  } catch (error) {
     console.error("Error updating product:", error)
     throw new Error("Failed to update product")
   }
-
-  return data
 }
 
 export async function deleteProduct(id: string) {
-  const { error } = await supabase.from("products").delete().eq("id", id)
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase not configured. Please set up your environment variables.")
+  }
 
-  if (error) {
+  try {
+    const { supabase } = await import("@/lib/supabase")
+    const { error } = await supabase.from("products").delete().eq("id", id)
+
+    if (error) {
+      console.error("Error deleting product:", error)
+      throw new Error("Failed to delete product")
+    }
+
+    return true
+  } catch (error) {
     console.error("Error deleting product:", error)
     throw new Error("Failed to delete product")
   }
-
-  return true
 }
 
 export async function toggleProductStatus(id: string) {
-  // First get the current status
-  const { data: product, error: fetchError } = await supabase.from("products").select("is_active").eq("id", id).single()
-
-  if (fetchError) {
-    throw new Error("Failed to fetch product status")
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase not configured. Please set up your environment variables.")
   }
 
-  // Toggle the status
-  const { data, error } = await supabase
-    .from("products")
-    .update({ is_active: !product.is_active })
-    .eq("id", id)
-    .select()
-    .single()
+  try {
+    const { supabase } = await import("@/lib/supabase")
+    const { data: product, error: fetchError } = await supabase
+      .from("products")
+      .select("is_active")
+      .eq("id", id)
+      .single()
 
-  if (error) {
+    if (fetchError) {
+      throw new Error("Failed to fetch product status")
+    }
+
+    const { data, error } = await supabase
+      .from("products")
+      .update({ is_active: !product.is_active })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error toggling product status:", error)
+      throw new Error("Failed to toggle product status")
+    }
+
+    return data
+  } catch (error) {
     console.error("Error toggling product status:", error)
     throw new Error("Failed to toggle product status")
   }
-
-  return data
-}
-
-export async function updateProductSortOrder(id: string, sortOrder: number) {
-  const { data, error } = await supabase
-    .from("products")
-    .update({ sort_order: sortOrder })
-    .eq("id", id)
-    .select()
-    .single()
-
-  if (error) {
-    console.error("Error updating product sort order:", error)
-    throw new Error("Failed to update product sort order")
-  }
-
-  return data
 }

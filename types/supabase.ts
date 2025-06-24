@@ -7,43 +7,16 @@ export interface Database {
           name: string
           category: string
           price: string
-          image_url: string | null
-          cloudinary_public_id: string | null
-          description: string
-          badge: string
+          image: string | null
+          description: string | null
+          badge: string | null
           is_active: boolean
+          sort_order: number
           created_at: string
           updated_at: string
-          sort_order: number
         }
-        Insert: {
-          id?: string
-          name: string
-          category: string
-          price: string
-          image_url?: string | null
-          cloudinary_public_id?: string | null
-          description: string
-          badge: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          sort_order?: number
-        }
-        Update: {
-          id?: string
-          name?: string
-          category?: string
-          price?: string
-          image_url?: string | null
-          cloudinary_public_id?: string | null
-          description?: string
-          badge?: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          sort_order?: number
-        }
+        Insert: Omit<Database["public"]["Tables"]["products"]["Row"], "id" | "created_at" | "updated_at">
+        Update: Partial<Database["public"]["Tables"]["products"]["Insert"]>
       }
       testimonials: {
         Row: {
@@ -53,32 +26,12 @@ export interface Database {
           content: string
           rating: number
           is_active: boolean
+          sort_order: number
           created_at: string
           updated_at: string
-          sort_order: number
         }
-        Insert: {
-          id?: string
-          name: string
-          role: string
-          content: string
-          rating: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          sort_order?: number
-        }
-        Update: {
-          id?: string
-          name?: string
-          role?: string
-          content?: string
-          rating?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          sort_order?: number
-        }
+        Insert: Omit<Database["public"]["Tables"]["testimonials"]["Row"], "id" | "created_at" | "updated_at">
+        Update: Partial<Database["public"]["Tables"]["testimonials"]["Insert"]>
       }
       instagram_posts: {
         Row: {
@@ -123,20 +76,8 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: {
-          id?: string
-          key: string
-          value: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          key?: string
-          value?: string
-          created_at?: string
-          updated_at?: string
-        }
+        Insert: Omit<Database["public"]["Tables"]["site_settings"]["Row"], "id" | "created_at" | "updated_at">
+        Update: Partial<Database["public"]["Tables"]["site_settings"]["Insert"]>
       }
       users: {
         Row: {
