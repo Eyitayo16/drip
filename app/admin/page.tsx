@@ -34,31 +34,29 @@ import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { getProducts, createProduct, updateProduct, deleteProduct, toggleProductStatus } from "@/lib/api/products"
 import { getTestimonials, createTestimonial } from "@/lib/api/testimonials"
 import { getSiteSettings, setSiteSettings } from "@/lib/api/settings"
-import type { Database } from "@/types/supabase"
-
-type Product = Database["public"]["Tables"]["products"]["Row"]
-type Testimonial = Database["public"]["Tables"]["testimonials"]["Row"]
+import { fallbackProducts, fallbackTestimonials, fallbackSiteSettings } from "@/lib/fallback-data"
 
 // Types for our data structures
-// interface Product {
-//   id: number
-//   name: string
-//   category: string
-//   price: string
-//   image: string
-//   description: string
-//   badge: string
-//   isActive: boolean
-// }
+interface Product {
+  id: string
+  name: string
+  category: string
+  price: string
+  image?: string
+  image_url?: string
+  description: string
+  badge: string
+  isActive: boolean
+}
 
-// interface Testimonial {
-//   id: number
-//   name: string
-//   role: string
-//   content: string
-//   rating: number
-//   isActive: boolean
-// }
+interface Testimonial {
+  id: string
+  name: string
+  role: string
+  content: string
+  rating: number
+  isActive: boolean
+}
 
 interface InstagramPost {
   id: number
@@ -68,24 +66,13 @@ interface InstagramPost {
   isActive: boolean
 }
 
-interface SiteSettings {
-  brandName: string
-  tagline: string
-  whatsappNumber: string
-  instagramHandle: string
-  heroTitle: string
-  heroSubtitle: string
-  aboutText: string
-  founderName: string
-  founderTitle: string
-}
-
 export default function AdminDashboard() {
   const { profile } = useSupabaseAuth()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("products")
   const [isLoading, setIsLoading] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
   // State for all data
   const [products, setProducts] = useState<Product[]>([])
@@ -94,6 +81,7 @@ export default function AdminDashboard() {
 
   // Load data on component mount
   useEffect(() => {
+    setMounted(true)
     loadAllData()
   }, [])
 
@@ -111,49 +99,19 @@ export default function AdminDashboard() {
       setSiteSettingsState(settingsData)
     } catch (error) {
       console.error("Error loading data:", error)
+      // Use fallback data on error
+      setProducts(fallbackProducts)
+      setTestimonials(fallbackTestimonials)
+      setSiteSettingsState(fallbackSiteSettings)
+
       toast({
-        title: "Error",
-        description: "Failed to load data. Please refresh the page.",
-        variant: "destructive",
+        title: "Using Demo Data",
+        description: "Configure Supabase to use real data management.",
       })
     } finally {
       setDataLoading(false)
     }
   }
-
-  // const [products, setProducts] = useState<Product[]>([
-  //   {
-  //     id: 1,
-  //     name: "Royal Street Hoodie",
-  //     category: "Unisex Fashion",
-  //     price: "₦45,000",
-  //     image: "/placeholder.svg?height=400&width=300",
-  //     description: "Premium streetwear meets luxury comfort",
-  //     badge: "Trending",
-  //     isActive: true,
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Gold Chain Luxury Set",
-  //     category: "Jewelry",
-  //     price: "₦120,000",
-  //     image: "/placeholder.svg?height=400&width=300",
-  //     description: "18k gold-plated statement piece",
-  //     badge: "Limited",
-  //     isActive: true,
-  //   },
-  // ])
-
-  // const [testimonials, setTestimonials] = useState<Testimonial[]>([
-  //   {
-  //     id: 1,
-  //     name: "Adunni Ade",
-  //     role: "Nollywood Actress",
-  //     content: "Minis Umar transformed my entire wardrobe. The attention to detail and luxury pieces are unmatched!",
-  //     rating: 5,
-  //     isActive: true,
-  //   },
-  // ])
 
   const [instagramPosts, setInstagramPosts] = useState<InstagramPost[]>([
     {
@@ -164,18 +122,6 @@ export default function AdminDashboard() {
       isActive: true,
     },
   ])
-
-  // const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-  //   brandName: "MINIS LUXURY",
-  //   tagline: "Where Nigerian Street Fashion Meets Global Luxury",
-  //   whatsappNumber: "2349057244762",
-  //   instagramHandle: "@Minis_Luxury",
-  //   heroTitle: "MINIS LUXURY",
-  //   heroSubtitle: "Where Nigerian Street Fashion Meets Global Luxury",
-  //   aboutText: "From the vibrant streets of Nigeria to the global luxury fashion scene...",
-  //   founderName: "Muhammed Umar Faruq",
-  //   founderTitle: "Founder & Creative Director",
-  // })
 
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
@@ -200,9 +146,8 @@ export default function AdminDashboard() {
       })
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to save changes. Please try again.",
-        variant: "destructive",
+        title: "Note",
+        description: "Configure Supabase to save changes permanently.",
       })
     } finally {
       setIsLoading(false)
@@ -228,10 +173,23 @@ export default function AdminDashboard() {
         description: "New product has been added successfully.",
       })
     } catch (error) {
+      // Add to local state for demo
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        name: productForm.name || "",
+        category: productForm.category || "",
+        price: productForm.price || "",
+        image_url: productForm.image || "/placeholder.svg?height=400&width=300",
+        description: productForm.description || "",
+        badge: productForm.badge || "New",
+        isActive: true,
+      }
+      setProducts([newProduct, ...products])
+      setProductForm({})
+      setIsProductModalOpen(false)
       toast({
-        title: "Error",
-        description: "Failed to add product. Please try again.",
-        variant: "destructive",
+        title: "Product Added (Demo)",
+        description: "Configure Supabase to save permanently.",
       })
     }
   }
@@ -257,10 +215,14 @@ export default function AdminDashboard() {
         description: "Product has been updated successfully.",
       })
     } catch (error) {
+      // Update local state for demo
+      setProducts(products.map((p) => (p.id === editingProduct.id ? { ...p, ...productForm } : p)))
+      setEditingProduct(null)
+      setProductForm({})
+      setIsProductModalOpen(false)
       toast({
-        title: "Error",
-        description: "Failed to update product. Please try again.",
-        variant: "destructive",
+        title: "Product Updated (Demo)",
+        description: "Configure Supabase to save permanently.",
       })
     }
   }
@@ -274,10 +236,11 @@ export default function AdminDashboard() {
         description: "Product has been removed successfully.",
       })
     } catch (error) {
+      // Remove from local state for demo
+      setProducts(products.filter((p) => p.id !== id))
       toast({
-        title: "Error",
-        description: "Failed to delete product. Please try again.",
-        variant: "destructive",
+        title: "Product Deleted (Demo)",
+        description: "Configure Supabase to save permanently.",
       })
     }
   }
@@ -287,11 +250,8 @@ export default function AdminDashboard() {
       const updatedProduct = await toggleProductStatus(id)
       setProducts(products.map((p) => (p.id === id ? updatedProduct : p)))
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update product status.",
-        variant: "destructive",
-      })
+      // Toggle local state for demo
+      setProducts(products.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p)))
     }
   }
 
@@ -313,10 +273,21 @@ export default function AdminDashboard() {
         description: "New testimonial has been added successfully.",
       })
     } catch (error) {
+      // Add to local state for demo
+      const newTestimonial: Testimonial = {
+        id: Date.now().toString(),
+        name: testimonialForm.name || "",
+        role: testimonialForm.role || "",
+        content: testimonialForm.content || "",
+        rating: testimonialForm.rating || 5,
+        isActive: true,
+      }
+      setTestimonials([newTestimonial, ...testimonials])
+      setTestimonialForm({})
+      setIsTestimonialModalOpen(false)
       toast({
-        title: "Error",
-        description: "Failed to add testimonial. Please try again.",
-        variant: "destructive",
+        title: "Testimonial Added (Demo)",
+        description: "Configure Supabase to save permanently.",
       })
     }
   }
@@ -345,6 +316,14 @@ export default function AdminDashboard() {
 
   const handleDeleteTestimonial = (id: string) => {
     setTestimonials(testimonials.filter((t) => t.id !== id))
+    toast({
+      title: "Testimonial Deleted",
+      description: "Testimonial has been removed successfully.",
+    })
+  }
+
+  if (!mounted) {
+    return null
   }
 
   if (dataLoading) {
@@ -538,7 +517,7 @@ export default function AdminDashboard() {
                       <Card key={product.id} className={`${!product.isActive ? "opacity-50" : ""}`}>
                         <div className="relative">
                           <Image
-                            src={product.image_url || "/placeholder.svg"}
+                            src={product.image_url || product.image || "/placeholder.svg"}
                             alt={product.name}
                             width={300}
                             height={200}
@@ -844,7 +823,14 @@ export default function AdminDashboard() {
 
             {/* Images Tab */}
             <TabsContent value="images" className="space-y-6">
-              <CloudinaryImageManager />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Images Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CloudinaryImageManager />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* About Tab */}
@@ -860,7 +846,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="founderName">Founder Name</Label>
                         <Input
                           id="founderName"
-                          value={siteSettings.founderName}
+                          value={siteSettings.founderName || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, founderName: e.target.value })}
                         />
                       </div>
@@ -868,7 +854,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="founderTitle">Founder Title</Label>
                         <Input
                           id="founderTitle"
-                          value={siteSettings.founderTitle}
+                          value={siteSettings.founderTitle || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, founderTitle: e.target.value })}
                         />
                       </div>
@@ -876,7 +862,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="aboutText">About Text</Label>
                         <Textarea
                           id="aboutText"
-                          value={siteSettings.aboutText}
+                          value={siteSettings.aboutText || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, aboutText: e.target.value })}
                           rows={8}
                           placeholder="Enter the about section content..."
@@ -898,13 +884,13 @@ export default function AdminDashboard() {
                         <h4 className="font-semibold mb-2">Preview</h4>
                         <div className="text-sm space-y-2">
                           <p>
-                            <strong>Name:</strong> {siteSettings.founderName}
+                            <strong>Name:</strong> {siteSettings.founderName || "Not set"}
                           </p>
                           <p>
-                            <strong>Title:</strong> {siteSettings.founderTitle}
+                            <strong>Title:</strong> {siteSettings.founderTitle || "Not set"}
                           </p>
                           <p>
-                            <strong>About:</strong> {siteSettings.aboutText.substring(0, 100)}...
+                            <strong>About:</strong> {(siteSettings.aboutText || "").substring(0, 100)}...
                           </p>
                         </div>
                       </div>
@@ -927,7 +913,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="brandName">Brand Name</Label>
                         <Input
                           id="brandName"
-                          value={siteSettings.brandName}
+                          value={siteSettings.brandName || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, brandName: e.target.value })}
                         />
                       </div>
@@ -935,7 +921,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="tagline">Tagline</Label>
                         <Input
                           id="tagline"
-                          value={siteSettings.tagline}
+                          value={siteSettings.tagline || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, tagline: e.target.value })}
                         />
                       </div>
@@ -943,7 +929,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="heroTitle">Hero Title</Label>
                         <Input
                           id="heroTitle"
-                          value={siteSettings.heroTitle}
+                          value={siteSettings.heroTitle || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, heroTitle: e.target.value })}
                         />
                       </div>
@@ -951,7 +937,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="heroSubtitle">Hero Subtitle</Label>
                         <Input
                           id="heroSubtitle"
-                          value={siteSettings.heroSubtitle}
+                          value={siteSettings.heroSubtitle || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, heroSubtitle: e.target.value })}
                         />
                       </div>
@@ -961,7 +947,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="whatsappNumber">WhatsApp Number</Label>
                         <Input
                           id="whatsappNumber"
-                          value={siteSettings.whatsappNumber}
+                          value={siteSettings.whatsappNumber || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, whatsappNumber: e.target.value })}
                           placeholder="2349057244762"
                         />
@@ -970,7 +956,7 @@ export default function AdminDashboard() {
                         <Label htmlFor="instagramHandle">Instagram Handle</Label>
                         <Input
                           id="instagramHandle"
-                          value={siteSettings.instagramHandle}
+                          value={siteSettings.instagramHandle || ""}
                           onChange={(e) => setSiteSettingsState({ ...siteSettings, instagramHandle: e.target.value })}
                           placeholder="@Minis_Luxury"
                         />

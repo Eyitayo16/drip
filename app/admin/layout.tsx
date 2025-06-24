@@ -1,5 +1,5 @@
 import type React from "react"
-import { AuthProvider } from "@/hooks/use-auth"
+import { SupabaseAuthProvider } from "@/hooks/use-supabase-auth"
 
 export default function AdminLayout({
   children,
@@ -7,8 +7,8 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   return (
-    <AuthProvider>
+    <SupabaseAuthProvider>
       <div className="min-h-screen bg-gray-50">{children}</div>
-    </AuthProvider>
+    </SupabaseAuthProvider>
   )
 }
