@@ -14,7 +14,8 @@ export async function getSiteSettings() {
 
   try {
     // Dynamic import to avoid errors when Supabase is not configured
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
     const { data, error } = await supabase.from("site_settings").select("*")
 
@@ -45,7 +46,9 @@ export async function updateSiteSetting(key: string, value: string) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { data, error } = await supabase
       .from("site_settings")
       .upsert({ key, value }, { onConflict: "key" })
@@ -70,7 +73,9 @@ export async function updateMultipleSettings(settings: Record<string, string>) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const settingsArray = Object.entries(settings).map(([key, value]) => ({ key, value }))
 
     const { data, error } = await supabase.from("site_settings").upsert(settingsArray, { onConflict: "key" }).select()

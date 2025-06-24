@@ -14,7 +14,8 @@ export async function getProducts(activeOnly = false) {
 
   try {
     // Dynamic import to avoid errors when Supabase is not configured
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
     let query = supabase
       .from("products")
@@ -48,7 +49,9 @@ export async function createProduct(product: any) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { data, error } = await supabase.from("products").insert(product).select().single()
 
     if (error) {
@@ -69,7 +72,9 @@ export async function updateProduct(id: string, updates: any) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { data, error } = await supabase.from("products").update(updates).eq("id", id).select().single()
 
     if (error) {
@@ -90,7 +95,9 @@ export async function deleteProduct(id: string) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { error } = await supabase.from("products").delete().eq("id", id)
 
     if (error) {
@@ -111,7 +118,9 @@ export async function toggleProductStatus(id: string) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { data: product, error: fetchError } = await supabase
       .from("products")
       .select("is_active")

@@ -14,7 +14,8 @@ export async function getTestimonials(activeOnly = false) {
 
   try {
     // Dynamic import to avoid errors when Supabase is not configured
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
     let query = supabase
       .from("testimonials")
@@ -48,7 +49,9 @@ export async function createTestimonial(testimonial: any) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { data, error } = await supabase.from("testimonials").insert(testimonial).select().single()
 
     if (error) {
@@ -69,7 +72,9 @@ export async function updateTestimonial(id: string, updates: any) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { data, error } = await supabase.from("testimonials").update(updates).eq("id", id).select().single()
 
     if (error) {
@@ -90,7 +95,9 @@ export async function deleteTestimonial(id: string) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { error } = await supabase.from("testimonials").delete().eq("id", id)
 
     if (error) {
@@ -111,7 +118,9 @@ export async function toggleTestimonialStatus(id: string) {
   }
 
   try {
-    const { supabase } = await import("@/lib/supabase")
+    const { createClient } = await import("@supabase/supabase-js")
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
     const { data: testimonial, error: fetchError } = await supabase
       .from("testimonials")
       .select("is_active")
