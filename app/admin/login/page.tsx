@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +10,79 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Crown, Eye, EyeOff, Lock, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
+
+// Simple auth hook that doesn't depend on context during SSR
+function useSimpleAuth() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    // Check auth status on client side only
+    const checkAuth = () => {
+      try {
+        const storedUser = localStorage.getItem("minisLuxuryAuth")
+        const sessionExpiry = localStorage.getItem("minisLuxuryAuthExpiry")
+
+        if (storedUser && sessionExpiry) {
+          const expiryTime = Number.parseInt(sessionExpiry)
+          const currentTime = Date.now()
+
+          if (currentTime < expiryTime) {
+            setIsAuthenticated(true)
+            router.push("/admin")
+            return
+          } else {
+            localStorage.removeItem("minisLuxuryAuth")
+            localStorage.removeItem("minisLuxuryAuthExpiry")
+          }
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  const login = async (email: string, password: string) => {
+    // Demo authentication
+    const validCredentials = [
+      { email: "admin@dripwithminis.com", password: "MinisLuxury2024!" },
+      { email: "umar@minisluxury.com", password: "MinisLuxury2024!" },
+      { email: "admin@minisluxury.com", password: "AdminPass123!" },
+    ]
+
+    const isValid = validCredentials.some((cred) => cred.email === email && cred.password === password)
+
+    if (isValid) {
+      const user = {
+        id: "1",
+        email: email,
+        name: email === "umar@minisluxury.com" ? "Muhammed Umar Faruq" : "Admin User",
+        role: email === "umar@minisluxury.com" ? "owner" : "admin",
+        avatar: "/placeholder.svg?height=40&width=40",
+      }
+
+      // Set session expiry to 24 hours
+      const expiryTime = Date.now() + 24 * 60 * 60 * 1000
+
+      localStorage.setItem("minisLuxuryAuth", JSON.stringify(user))
+      localStorage.setItem("minisLuxuryAuthExpiry", expiryTime.toString())
+
+      setIsAuthenticated(true)
+      router.push("/admin")
+      return true
+    }
+
+    return false
+  }
+
+  return { isAuthenticated, isLoading, login }
+}
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("")
@@ -20,9 +90,31 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const { login } = useAuth()
+  const [mounted, setMounted] = useState(false)
+  const { isAuthenticated, isLoading: authLoading, login } = useSimpleAuth()
   const { toast } = useToast()
-  const router = useRouter()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted || authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
+        <div className="text-yellow-400">Loading...</div>
+      </div>
+    )
+  }
+
+  // If already authenticated, don't show login form
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
+        <div className="text-yellow-400">Redirecting to admin...</div>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,43 +125,13 @@ export default function AdminLogin() {
       // Simulate API call delay
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Check for updated demo credentials (after password reset)
-      const storedCredentials = localStorage.getItem("minisLuxuryDemoCredentials")
-      let validCredentials = [
-        { email: "umar@minisluxury.com", password: "MinisLuxury2024!" },
-        { email: "admin@minisluxury.com", password: "AdminPass123!" },
-        { email: "muhammed@minisluxury.com", password: "Founder2024!" },
-      ]
+      const success = await login(email, password)
 
-      if (storedCredentials) {
-        try {
-          const updatedCredentials = JSON.parse(storedCredentials)
-          validCredentials = updatedCredentials
-        } catch (error) {
-          console.error("Failed to parse stored credentials")
-        }
-      }
-
-      const isValid = validCredentials.some((cred) => cred.email === email && cred.password === password)
-
-      if (isValid) {
-        // Create user session
-        const user = {
-          id: "1",
-          email: email,
-          name: email === "umar@minisluxury.com" ? "Muhammed Umar Faruq" : "Admin User",
-          role: email === "umar@minisluxury.com" ? "owner" : "admin",
-          avatar: "/placeholder.svg?height=40&width=40",
-        }
-
-        await login(user)
-
+      if (success) {
         toast({
           title: "Welcome back!",
           description: "Successfully logged into MINIS LUXURY admin.",
         })
-
-        router.push("/admin")
       } else {
         setError("Invalid email or password. Please try again.")
       }
@@ -116,7 +178,7 @@ export default function AdminLogin() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="admin@minisluxury.com"
+                    placeholder="admin@dripwithminis.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 bg-gray-900 border-gray-600 text-white placeholder:text-gray-400 focus:border-yellow-400"
@@ -175,10 +237,10 @@ export default function AdminLogin() {
               <h4 className="text-sm font-semibold text-yellow-400 mb-2">Demo Credentials:</h4>
               <div className="space-y-1 text-xs text-gray-400">
                 <p>
-                  <strong>Owner:</strong> umar@minisluxury.com / MinisLuxury2024!
+                  <strong>Admin:</strong> admin@dripwithminis.com / MinisLuxury2024!
                 </p>
                 <p>
-                  <strong>Admin:</strong> admin@minisluxury.com / AdminPass123!
+                  <strong>Owner:</strong> umar@minisluxury.com / MinisLuxury2024!
                 </p>
               </div>
             </div>
