@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -8,248 +9,400 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Crown, Eye, EyeOff, Lock, User } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Crown, Lock, Eye, EyeOff, Shield, Loader2, CheckCircle, AlertTriangle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
 
-// Simple auth hook that doesn't depend on context during SSR
-function useSimpleAuth() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
+interface LoginCredentials {
+  email: string
+  password: string
+}
 
-  useEffect(() => {
-    // Check auth status on client side only
-    const checkAuth = () => {
-      try {
-        const storedUser = localStorage.getItem("minisLuxuryAuth")
-        const sessionExpiry = localStorage.getItem("minisLuxuryAuthExpiry")
+interface AdminUser {
+  id: string
+  name: string
+  email: string
+  role: "owner" | "admin" | "editor"
+  avatar_url?: string
+  last_login: string
+}
 
-        if (storedUser && sessionExpiry) {
-          const expiryTime = Number.parseInt(sessionExpiry)
-          const currentTime = Date.now()
-
-          if (currentTime < expiryTime) {
-            setIsAuthenticated(true)
-            router.push("/admin")
-            return
-          } else {
-            localStorage.removeItem("minisLuxuryAuth")
-            localStorage.removeItem("minisLuxuryAuthExpiry")
-          }
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [router])
-
-  const login = async (email: string, password: string) => {
-    // Demo authentication
-    const validCredentials = [
-      { email: "admin@dripwithminis.com", password: "MinisLuxury2024!" },
-      { email: "umar@minisluxury.com", password: "MinisLuxury2024!" },
-      { email: "admin@minisluxury.com", password: "AdminPass123!" },
-    ]
-
-    const isValid = validCredentials.some((cred) => cred.email === email && cred.password === password)
-
-    if (isValid) {
-      const user = {
-        id: "1",
-        email: email,
-        name: email === "umar@minisluxury.com" ? "Muhammed Umar Faruq" : "Admin User",
-        role: email === "umar@minisluxury.com" ? "owner" : "admin",
-        avatar: "/placeholder.svg?height=40&width=40",
-      }
-
-      // Set session expiry to 24 hours
-      const expiryTime = Date.now() + 24 * 60 * 60 * 1000
-
-      localStorage.setItem("minisLuxuryAuth", JSON.stringify(user))
-      localStorage.setItem("minisLuxuryAuthExpiry", expiryTime.toString())
-
-      setIsAuthenticated(true)
-      router.push("/admin")
-      return true
-    }
-
-    return false
-  }
-
-  return { isAuthenticated, isLoading, login }
+// Demo users for authentication
+const DEMO_USERS: Record<string, AdminUser & { password: string }> = {
+  "admin@dripwithminis.com": {
+    id: "1",
+    name: "Muhammed Umar Faruq",
+    email: "admin@dripwithminis.com",
+    password: "MinisLuxury2024!",
+    role: "owner",
+    avatar_url: "/placeholder.svg?height=100&width=100",
+    last_login: new Date().toISOString(),
+  },
+  "editor@dripwithminis.com": {
+    id: "2",
+    name: "Fashion Editor",
+    email: "editor@dripwithminis.com",
+    password: "Editor2024!",
+    role: "editor",
+    avatar_url: "/placeholder.svg?height=100&width=100",
+    last_login: new Date().toISOString(),
+  },
+  "manager@dripwithminis.com": {
+    id: "3",
+    name: "Store Manager",
+    email: "manager@dripwithminis.com",
+    password: "Manager2024!",
+    role: "admin",
+    avatar_url: "/placeholder.svg?height=100&width=100",
+    last_login: new Date().toISOString(),
+  },
 }
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [mounted, setMounted] = useState(false)
-  const { isAuthenticated, isLoading: authLoading, login } = useSimpleAuth()
+  const router = useRouter()
   const { toast } = useToast()
+  const [mounted, setMounted] = useState(false)
+  const [credentials, setCredentials] = useState<LoginCredentials>({
+    email: "",
+    password: "",
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState("")
+  const [loginAttempts, setLoginAttempts] = useState(0)
+  const [isLocked, setIsLocked] = useState(false)
+  const [lockoutTime, setLockoutTime] = useState(0)
 
   useEffect(() => {
     setMounted(true)
+    checkExistingAuth()
+    checkLockout()
   }, [])
 
-  // Don't render until mounted to avoid hydration issues
-  if (!mounted || authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
-        <div className="text-yellow-400">Loading...</div>
-      </div>
-    )
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isLocked && lockoutTime > 0) {
+      interval = setInterval(() => {
+        setLockoutTime((prev) => {
+          if (prev <= 1) {
+            setIsLocked(false)
+            setLoginAttempts(0)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [isLocked, lockoutTime])
+
+  const checkExistingAuth = () => {
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("minisLuxuryAuth")
+      const sessionExpiry = localStorage.getItem("minisLuxuryAuthExpiry")
+
+      if (storedUser && sessionExpiry) {
+        const expiryTime = Number.parseInt(sessionExpiry)
+        const currentTime = Date.now()
+
+        if (currentTime < expiryTime) {
+          router.push("/admin")
+          return
+        } else {
+          localStorage.removeItem("minisLuxuryAuth")
+          localStorage.removeItem("minisLuxuryAuthExpiry")
+        }
+      }
+    }
   }
 
-  // If already authenticated, don't show login form
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
-        <div className="text-yellow-400">Redirecting to admin...</div>
-      </div>
-    )
+  const checkLockout = () => {
+    if (typeof window !== "undefined") {
+      const attempts = localStorage.getItem("loginAttempts")
+      const lockoutEnd = localStorage.getItem("lockoutEnd")
+
+      if (attempts) {
+        setLoginAttempts(Number.parseInt(attempts))
+      }
+
+      if (lockoutEnd) {
+        const lockoutEndTime = Number.parseInt(lockoutEnd)
+        const currentTime = Date.now()
+
+        if (currentTime < lockoutEndTime) {
+          setIsLocked(true)
+          setLockoutTime(Math.ceil((lockoutEndTime - currentTime) / 1000))
+        } else {
+          localStorage.removeItem("lockoutEnd")
+          localStorage.removeItem("loginAttempts")
+        }
+      }
+    }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (isLocked) {
+      toast({
+        title: "Account Locked",
+        description: `Please wait ${lockoutTime} seconds before trying again.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(true)
     setError("")
 
     try {
-      // Simulate API call delay
+      // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      const success = await login(email, password)
+      // Check credentials
+      const user = DEMO_USERS[credentials.email.toLowerCase()]
 
-      if (success) {
-        toast({
-          title: "Welcome back!",
-          description: "Successfully logged into MINIS LUXURY admin.",
-        })
-      } else {
-        setError("Invalid email or password. Please try again.")
+      if (!user || user.password !== credentials.password) {
+        const newAttempts = loginAttempts + 1
+        setLoginAttempts(newAttempts)
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("loginAttempts", newAttempts.toString())
+        }
+
+        if (newAttempts >= 5) {
+          const lockoutEnd = Date.now() + 300000 // 5 minutes
+          setIsLocked(true)
+          setLockoutTime(300)
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("lockoutEnd", lockoutEnd.toString())
+          }
+
+          toast({
+            title: "Account Locked",
+            description: "Too many failed attempts. Account locked for 5 minutes.",
+            variant: "destructive",
+          })
+        } else {
+          setError(`Invalid credentials. ${5 - newAttempts} attempts remaining.`)
+        }
+        return
       }
+
+      // Successful login
+      const sessionExpiry = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+      const userWithoutPassword = { ...user }
+      delete (userWithoutPassword as any).password
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("minisLuxuryAuth", JSON.stringify(userWithoutPassword))
+        localStorage.setItem("minisLuxuryAuthExpiry", sessionExpiry.toString())
+        localStorage.removeItem("loginAttempts")
+        localStorage.removeItem("lockoutEnd")
+      }
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${user.name}!`,
+      })
+
+      router.push("/admin")
     } catch (error) {
-      setError("An error occurred during login. Please try again.")
+      setError("Login failed. Please try again.")
+      toast({
+        title: "Login Failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
+  const handleInputChange = (field: keyof LoginCredentials, value: string) => {
+    setCredentials((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+    setError("")
+  }
+
+  const fillDemoCredentials = (userType: "owner" | "admin" | "editor") => {
+    const demoUser = Object.values(DEMO_USERS).find((user) => user.role === userType)
+    if (demoUser) {
+      setCredentials({
+        email: demoUser.email,
+        password: demoUser.password,
+      })
+    }
+  }
+
+  if (!mounted) {
+    return null
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo and Brand */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Crown className="h-12 w-12 text-yellow-400" />
-            <h1 className="text-3xl font-bold text-yellow-400">MINIS LUXURY</h1>
-          </div>
-          <p className="text-gray-400">Admin Dashboard Access</p>
-        </div>
-
-        {/* Login Form */}
-        <Card className="bg-gray-800 border-gray-700 shadow-2xl">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center text-white">Sign In</CardTitle>
-            <p className="text-center text-gray-400">Enter your credentials to access the admin panel</p>
+        <Card className="shadow-2xl border-0">
+          <CardHeader className="text-center pb-8">
+            <div className="flex justify-center mb-6">
+              <div className="bg-yellow-400 rounded-full p-4">
+                <Crown className="h-12 w-12 text-black" />
+              </div>
+            </div>
+            <CardTitle className="text-3xl font-bold text-gray-900">MINIS LUXURY</CardTitle>
+            <p className="text-gray-600 mt-2">Admin Dashboard Access</p>
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <Shield className="h-4 w-4 text-green-500" />
+              <span className="text-sm text-green-600">Secure Authentication</span>
+            </div>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert className="border-red-500 bg-red-500/10">
-                  <Lock className="h-4 w-4" />
-                  <AlertDescription className="text-red-400">{error}</AlertDescription>
-                </Alert>
-              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-300">
-                  Email Address
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@dripwithminis.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 bg-gray-900 border-gray-600 text-white placeholder:text-gray-400 focus:border-yellow-400"
-                    required
-                  />
-                </div>
+          <CardContent className="space-y-6">
+            {isLocked && (
+              <Alert className="border-red-500 bg-red-50">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  Account temporarily locked. Please wait {Math.floor(lockoutTime / 60)}:
+                  {(lockoutTime % 60).toString().padStart(2, "0")} before trying again.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={credentials.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                  disabled={isLoading || isLocked}
+                  className="mt-1"
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-300">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <div className="relative mt-1">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
+                    value={credentials.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
                     placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10 bg-gray-900 border-gray-600 text-white placeholder:text-gray-400 focus:border-yellow-400"
                     required
+                    disabled={isLoading || isLocked}
+                    className="pr-10"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-white"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading || isLocked}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
                   </Button>
                 </div>
               </div>
 
-              {/* Forgot Password Link */}
-              <div className="flex justify-end">
-                <Link href="/admin/forgot-password">
-                  <Button variant="link" className="text-yellow-400 hover:text-yellow-300 p-0 h-auto">
-                    Forgot your password?
-                  </Button>
-                </Link>
-              </div>
+              {error && (
+                <Alert className="border-red-500 bg-red-50">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">{error}</AlertDescription>
+                </Alert>
+              )}
 
               <Button
                 type="submit"
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-2"
-                disabled={isLoading}
+                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3"
+                disabled={isLoading || isLocked}
               >
-                {isLoading ? "Signing In..." : "Sign In"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Sign In
+                  </>
+                )}
               </Button>
             </form>
 
-            {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-gray-900 rounded-lg border border-gray-600">
-              <h4 className="text-sm font-semibold text-yellow-400 mb-2">Demo Credentials:</h4>
-              <div className="space-y-1 text-xs text-gray-400">
-                <p>
-                  <strong>Admin:</strong> admin@dripwithminis.com / MinisLuxury2024!
-                </p>
-                <p>
-                  <strong>Owner:</strong> umar@minisluxury.com / MinisLuxury2024!
-                </p>
+            <Separator />
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 text-center">Demo Accounts:</p>
+              <div className="grid gap-2">
+                <Button
+                  onClick={() => fillDemoCredentials("owner")}
+                  variant="outline"
+                  size="sm"
+                  disabled={isLoading || isLocked}
+                  className="justify-start"
+                >
+                  <Crown className="h-4 w-4 mr-2 text-yellow-500" />
+                  Owner Access
+                </Button>
+                <Button
+                  onClick={() => fillDemoCredentials("admin")}
+                  variant="outline"
+                  size="sm"
+                  disabled={isLoading || isLocked}
+                  className="justify-start"
+                >
+                  <Shield className="h-4 w-4 mr-2 text-blue-500" />
+                  Admin Access
+                </Button>
+                <Button
+                  onClick={() => fillDemoCredentials("editor")}
+                  variant="outline"
+                  size="sm"
+                  disabled={isLoading || isLocked}
+                  className="justify-start"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  Editor Access
+                </Button>
               </div>
+            </div>
+
+            <div className="text-center">
+              <p className="text-xs text-gray-500">Secure admin access for MINIS LUXURY website management</p>
+              <p className="text-xs text-gray-400 mt-1">Session expires after 24 hours of inactivity</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Footer */}
-        <div className="text-center mt-6 text-gray-500 text-sm">
-          <p>© 2024 MINIS LUXURY. All rights reserved.</p>
+        {/* Security Features */}
+        <div className="mt-6 text-center">
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+            <div className="flex items-center gap-1">
+              <Shield className="h-3 w-3" />
+              <span>Secure Login</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              <span>Session Management</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              <span>Role-Based Access</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
